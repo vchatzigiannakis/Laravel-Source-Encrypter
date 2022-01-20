@@ -28,7 +28,7 @@ class SourceEncryptCommand extends Command
                 { --source= : Path(s) to encrypt }
                 { --destination= : Destination directory }
                 { --force : Force the operation to run when destination directory already exists }
-                { --keylength= : Encryption key length }';
+                { --key= : Encryption key  }';
     /**
      * The console command description.
      *
@@ -62,10 +62,11 @@ class SourceEncryptCommand extends Command
         } else {
             $destination = $this->option('destination');
         }
-        if (empty($this->option('keylength'))) {
-            $keyLength = config('source-encrypter.key_length', 6);
+        if (empty($this->option('key'))) {
+            $key = Str::random(10);
+			echo "Key: $key";
         } else {
-            $keyLength = $this->option('keylength');
+            $key = $this->option('key');
         }
 
         if (!$this->option('force')
@@ -89,13 +90,13 @@ class SourceEncryptCommand extends Command
 
             @File::makeDirectory($destination.'/'.File::dirname($source), 493, true);
             if (File::isFile($source)) {
-                self::encryptFile($source, $destination, $keyLength);
+                self::encryptFile($source, $destination, $key);
                 continue;
             }
             $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(base_path($source)));
             foreach ($files as $file) {
                 $filePath = Str::replaceFirst(base_path(), '', $file->getRealPath());
-                self::encryptFile($filePath, $destination, $keyLength);
+                self::encryptFile($filePath, $destination, $key);
             }
         }
         $this->info('Encrypting Completed Successfully!');
@@ -104,9 +105,9 @@ class SourceEncryptCommand extends Command
         return 0;
     }
 
-    private function encryptFile($filePath, $destination, $keyLength)
+    private function encryptFile($filePath, $destination, $key)
     {
-        $key = Str::random($keyLength);
+       
         if (File::isDirectory(base_path($filePath))) {
             if (!File::exists(base_path($destination.$filePath))) {
                 File::makeDirectory(base_path("$destination/$filePath"), 493, true);
@@ -130,7 +131,7 @@ class SourceEncryptCommand extends Command
         $fileContents = File::get(base_path($filePath));
 
         $prepend = "<?php
-bolt_decrypt( __FILE__ , '$key'); return 0;
+bolt_decrypt( __FILE__ , getenv('PHP_BOLT_KEY')); return 0;
 ##!!!##";
         $pattern = '/\<\?php/m';
         preg_match($pattern, $fileContents, $matches);
